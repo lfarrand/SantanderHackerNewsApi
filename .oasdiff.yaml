@@ -4,5 +4,4 @@ exclude-elements:
   - title
   - summary
   - examples
-  - example
   - extensions
