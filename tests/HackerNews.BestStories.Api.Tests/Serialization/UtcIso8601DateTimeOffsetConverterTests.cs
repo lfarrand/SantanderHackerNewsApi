@@ -57,9 +57,7 @@ public sealed class UtcIso8601DateTimeOffsetConverterTests : IAsyncDisposable
     [Fact]
     public void Read_ThrowsFormatException_ForMalformedValue()
     {
-        void Action() => DeserializeDateTimeOffset("\"not-a-date\"");
-
-        Assert.Throws<FormatException>((Action)Action);
+        Assert.Throws<FormatException>(() => DeserializeDateTimeOffset("\"not-a-date\""));
     }
 
     private DateTimeOffset DeserializeDateTimeOffset(string json)
