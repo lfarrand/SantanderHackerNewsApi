@@ -5,8 +5,27 @@ namespace HackerNews.BestStories.Api;
 
 internal sealed class UtcIso8601DateTimeOffsetConverter : JsonConverter<DateTimeOffset>
 {
+    private static readonly string[] Iso8601Formats =
+    [
+        "yyyy-MM-dd'T'HH:mm:ssK",
+        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK"
+    ];
+
     public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        => DateTimeOffset.Parse(reader.GetString()!);
+    {
+        var value = reader.GetString()!;
+        if (!DateTimeOffset.TryParseExact(
+                value,
+                Iso8601Formats,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None,
+                out var result))
+        {
+            throw new FormatException($"The value '{value}' is not a valid ISO-8601 date/time offset.");
+        }
+
+        return result;
+    }
 
     public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
         => writer.WriteStringValue(value.ToUniversalTime()

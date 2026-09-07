@@ -1,6 +1,6 @@
 <Project>
-    <!-- Do not inherit TargetFramework / TreatWarningsAsErrors from the repo root. -->
-    <!-- Repo-level Directory.Build.props sets <TargetFramework>net10.0</TargetFramework> for every project. That is wrong for an .esproj -->
+    <!-- MSBuild automatically loads only the nearest Directory.Build.props. -->
+    <!-- This file does not import the repo root props, keeping their TargetFramework and warning settings out of the .esproj. -->
     <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.esproj'">
         <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     </PropertyGroup>
