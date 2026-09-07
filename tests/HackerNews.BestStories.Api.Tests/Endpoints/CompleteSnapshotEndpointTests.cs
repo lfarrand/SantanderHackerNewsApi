@@ -80,10 +80,12 @@ public sealed class CompleteSnapshotEndpointTests
     [InlineData("BaseUrl")]
     public void Startup_RejectsInvalidOptions(string property)
     {
-        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureServices(services =>
-            services.PostConfigure<HackerNewsOptions>(options => typeof(HackerNewsOptions).GetProperty(property)!
-                .SetValue(options, property == "BaseUrl" ? "file:///invalid" : (object)0))));
-        Assert.Throws<OptionsValidationException>(() => factory.CreateClient());
+        StartupValidationAssert.ThrowsOptionsValidation(() =>
+            new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+                builder.ConfigureServices(services =>
+                    services.PostConfigure<HackerNewsOptions>(options =>
+                        typeof(HackerNewsOptions).GetProperty(property)!
+                            .SetValue(options, property == "BaseUrl" ? "file:///invalid" : (object)0)))));
     }
 
     [Fact]
