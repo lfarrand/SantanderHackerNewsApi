@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 
 namespace HackerNews.BestStories.Api.Tests.Endpoints;
 
+[Collection(StartupValidationCollection.Name)]
 public sealed class ForwardedHeadersTests
 {
     [Theory]

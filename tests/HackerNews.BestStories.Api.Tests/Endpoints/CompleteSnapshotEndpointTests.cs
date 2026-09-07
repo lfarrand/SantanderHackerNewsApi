@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace HackerNews.BestStories.Api.Tests.Endpoints;
 
-[Collection(nameof(StartupValidationCollection))]
+[Collection(StartupValidationCollection.Name)]
 public sealed class CompleteSnapshotEndpointTests
 {
     [Fact]
@@ -95,6 +95,3 @@ public sealed class CompleteSnapshotEndpointTests
         Assert.Equal(TimeSpan.FromSeconds(7), client.Timeout);
     }
 }
-
-[CollectionDefinition(nameof(StartupValidationCollection), DisableParallelization = true)]
-public sealed class StartupValidationCollection { }
