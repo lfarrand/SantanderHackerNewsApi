@@ -97,4 +97,4 @@ public sealed class CompleteSnapshotEndpointTests
 }
 
 [CollectionDefinition(nameof(StartupValidationCollection), DisableParallelization = true)]
-public sealed class StartupValidationCollection;
+public sealed class StartupValidationCollection { }
