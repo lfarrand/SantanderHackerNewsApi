@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>HackerNews.BestStories.Blazor</AssemblyName>
+    <RootNamespace>HackerNews.BestStories.Blazor</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="HackerNews.BestStories.Blazor.Tests" />
+  </ItemGroup>
+
+</Project>
