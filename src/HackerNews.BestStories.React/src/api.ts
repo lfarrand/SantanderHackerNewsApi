@@ -1,6 +1,6 @@
 import { MAX_STORIES, type Story } from "./types";
 
-const apiBase = ((import.meta.env.VITE_API_BASE as string | undefined) ?? "").replace(/\/+$/, "");
+const apiBase = (import.meta.env.VITE_API_BASE as string | undefined) ?? "";
 
 const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
 
