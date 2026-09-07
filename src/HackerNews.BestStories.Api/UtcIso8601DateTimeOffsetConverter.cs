@@ -7,10 +7,8 @@ internal sealed class UtcIso8601DateTimeOffsetConverter : JsonConverter<DateTime
 {
     private static readonly string[] Iso8601Formats =
     [
-        "yyyy-MM-dd'T'HH:mm:ss'Z'",
-        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'",
-        "yyyy-MM-dd'T'HH:mm:sszzz",
-        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFzzz"
+        "yyyy-MM-dd'T'HH:mm:ssK",
+        "yyyy-MM-dd'T'HH:mm:ss.FFFFFFFK"
     ];
 
     public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
