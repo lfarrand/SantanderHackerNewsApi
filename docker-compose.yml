@@ -1,0 +1,90 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: hackernews-beststories-api:local
+    container_name: hackernews-beststories-api
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      HackerNews__BaseUrl: ${HN_BASE_URL:-https://hacker-news.firebaseio.com/v0/}
+      HackerNews__MaxStories: "500"
+      HackerNews__CacheTtlSeconds: "300"
+      HackerNews__FailureCacheTtlSeconds: "30"
+      HackerNews__MaxConcurrency: "20"
+      HackerNews__RequestTimeoutSeconds: ${HN_REQUEST_TIMEOUT_SECONDS:-10}
+      HackerNews__RefreshTimeoutSeconds: ${HN_REFRESH_TIMEOUT_SECONDS:-120}
+      # Trust the compose subnet instead of a pinned container IP.
+      ReverseProxy__KnownNetworks__0: ${HN_DOCKER_SUBNET:-172.30.80.0/24}
+    networks:
+      - hn-backend
+    volumes:
+      - api-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+      start_period: 25s
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.react
+    image: hackernews-beststories-web:local
+    container_name: hackernews-beststories-web
+    ports:
+      - "8081:80"
+    networks:
+      - hn-backend
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  blazor:
+    build:
+      context: .
+      dockerfile: Dockerfile.blazor
+    image: hackernews-beststories-blazor:local
+    container_name: hackernews-beststories-blazor
+    ports:
+      - "8082:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ApiBaseUrl: http://api:8080/
+      ApiClient__RequestTimeoutSeconds: ${HN_BLAZOR_TIMEOUT_SECONDS:-130}
+      ApiClient__RefreshTimeoutSeconds: ${HN_REFRESH_TIMEOUT_SECONDS:-120}
+    networks:
+      - hn-backend
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  portainer:
+    image: portainer/portainer-ce:lts
+    container_name: portainer
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    restart: unless-stopped
+
+networks:
+  hn-backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${HN_DOCKER_SUBNET:-172.30.80.0/24}
+
+volumes:
+  api-logs:
+  portainer_data:

@@ -1,0 +1,42 @@
+# syntax=docker/dockerfile:1
+# Blazor Server UI. Set ApiBaseUrl to the API service.
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
+WORKDIR /src
+
+ARG VERSION=1.0.0
+
+ENV DOTNET_NOLOGO=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    NUGET_XMLDOC_MODE=skip
+
+COPY Directory.Build.props Directory.Packages.props global.json NuGet.config ./
+COPY src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj \
+     src/HackerNews.BestStories.Blazor/packages.lock.json \
+     src/HackerNews.BestStories.Blazor/
+
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj
+
+COPY src/HackerNews.BestStories.Blazor/ src/HackerNews.BestStories.Blazor/
+
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet publish src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj \
+        -c Release \
+        -o /app/publish \
+        --no-restore \
+        /p:UseAppHost=false \
+        /p:Version=${VERSION}
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS final
+WORKDIR /app
+
+EXPOSE 8080
+ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ApiBaseUrl=http://api:8080/
+
+COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
+
+USER $APP_UID
+ENTRYPOINT ["dotnet", "HackerNews.BestStories.Blazor.dll"]

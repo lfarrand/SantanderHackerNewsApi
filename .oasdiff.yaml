@@ -1,0 +1,8 @@
+fail-on: ERR
+exclude-elements:
+  - description
+  - title
+  - summary
+  - examples
+  - example
+  - extensions

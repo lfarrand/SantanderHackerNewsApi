@@ -1,0 +1,54 @@
+# syntax=docker/dockerfile:1
+# API image only.
+# React UI:  Dockerfile.react
+# Blazor UI: Dockerfile.blazor
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
+WORKDIR /src
+
+ARG VERSION=1.0.0
+
+ENV DOTNET_NOLOGO=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    NUGET_XMLDOC_MODE=skip
+
+COPY Directory.Build.props Directory.Packages.props global.json NuGet.config ./
+COPY src/HackerNews.BestStories.Api/HackerNews.BestStories.Api.csproj \
+     src/HackerNews.BestStories.Api/packages.lock.json \
+     src/HackerNews.BestStories.Api/
+
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore src/HackerNews.BestStories.Api/HackerNews.BestStories.Api.csproj
+
+COPY src/HackerNews.BestStories.Api/ src/HackerNews.BestStories.Api/
+
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet publish src/HackerNews.BestStories.Api/HackerNews.BestStories.Api.csproj \
+        -c Release \
+        -o /app/publish \
+        --no-restore \
+        /p:UseAppHost=false \
+        /p:Version=${VERSION}
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS final
+WORKDIR /app
+
+EXPOSE 8080
+ENV ASPNETCORE_HTTP_PORTS=8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/logs \
+    && chown $APP_UID:$APP_UID /app/logs
+
+COPY --from=build --chown=$APP_UID:$APP_UID /app/publish .
+
+USER $APP_UID
+
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=5 \
+    CMD curl -fsS http://127.0.0.1:8080/health || exit 1
+
+ENTRYPOINT ["dotnet", "HackerNews.BestStories.Api.dll"]
