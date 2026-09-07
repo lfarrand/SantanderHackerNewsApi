@@ -19,7 +19,8 @@ def request(url, headers=None):
     except urllib.error.HTTPError as error:
         response = error
     with response:
-        return response.status, response.read(), response.headers.get_content_type()
+        status = response.getcode()
+        return status, response.read(), response.headers.get_content_type()
 
 
 def check(condition, message):
