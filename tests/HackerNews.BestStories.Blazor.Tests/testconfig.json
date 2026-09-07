@@ -1,0 +1,11 @@
+﻿{
+  "platformOptions": {
+    "Coverlet": {
+      "format": "cobertura",
+      "include": "[HackerNews.BestStories.Blazor]*",
+      "exclude": "[HackerNews.BestStories.Blazor.Tests]*",
+      "excludeByFile": "**/Components/Layout/MainLayout.razor",
+      "includeTestAssembly": false
+    }
+  }
+}

@@ -5,28 +5,28 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
+        <OutputType>Exe</OutputType>
+        <IsTestProject>true</IsTestProject>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
     </PropertyGroup>
 
     <ItemGroup>
-    <PackageReference Include="coverlet.collector">
+    <PackageReference Include="coverlet.MTP">
       <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive; compile</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" />
-    <PackageReference Include="xunit" />
-    <PackageReference Include="xunit.runner.visualstudio">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="xunit.v3" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="testconfig.json" CopyToOutputDirectory="PreserveNewest" />
     <None Update="OpenApi\openapi-v1-baseline.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="..\..\openapi\openapi-v1.json" Link="OpenApi\published-v1.json" CopyToOutputDirectory="PreserveNewest" />
     <None Remove="TestResults\**" />
+    <None Remove="coverlet.runsettings" />
   </ItemGroup>
 
     <ItemGroup>

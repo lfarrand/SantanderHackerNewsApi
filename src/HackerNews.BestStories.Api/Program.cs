@@ -49,18 +49,16 @@ builder.Services.AddOpenApi(options =>
         {
             var parameter = operation.Parameters?.OfType<OpenApiParameter>()
                 .SingleOrDefault(parameter => parameter.Name == "n" && parameter.In == ParameterLocation.Query);
-            if (parameter?.Schema is OpenApiSchema schema)
-            {
-                var maxStories = context.ApplicationServices.GetRequiredService<IOptions<HackerNewsOptions>>().Value
-                    .MaxStories;
-                parameter.Required = true;
-                parameter.Description = "Number of best stories the caller requests. Required; no server-side default.";
-                parameter.Example = JsonValue.Create(1);
-                schema.Type = JsonSchemaType.Integer;
-                schema.Pattern = null;
-                schema.Minimum = "1";
-                schema.Maximum = maxStories.ToString(CultureInfo.InvariantCulture);
-            }
+            if (parameter?.Schema is not OpenApiSchema schema) return Task.CompletedTask;
+            var maxStories = context.ApplicationServices.GetRequiredService<IOptions<HackerNewsOptions>>().Value
+                .MaxStories;
+            parameter.Required = true;
+            parameter.Description = "Number of best stories the caller requests. Required; no server-side default.";
+            parameter.Example = JsonValue.Create(1);
+            schema.Type = JsonSchemaType.Integer;
+            schema.Pattern = null;
+            schema.Minimum = "1";
+            schema.Maximum = maxStories.ToString(CultureInfo.InvariantCulture);
         }
 
         return Task.CompletedTask;
@@ -196,7 +194,7 @@ static void MapBestStoryRoutes(RouteGroupBuilder group)
     group.MapGet("/", GetBestStoriesByQuery)
         .WithName("GetBestStoriesByQuery")
         .WithTags("Best Stories")
-        .Produces<StoryDto[]>(StatusCodes.Status200OK)
+        .Produces<StoryDto[]>()
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status429TooManyRequests)
         .ProducesProblem(StatusCodes.Status500InternalServerError)

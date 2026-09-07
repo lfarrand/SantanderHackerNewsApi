@@ -90,7 +90,7 @@ public sealed class StoryMapperTests
         var result = StoryMapper.Map(item);
 
         Assert.NotNull(result);
-        Assert.Equal(10, result!.Id);
+        Assert.Equal(10, result.Id);
         Assert.Equal("author", result.PostedBy);
         Assert.Equal(15, result.CommentCount);
         Assert.Equal(120, result.Score);

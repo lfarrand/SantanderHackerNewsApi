@@ -4,7 +4,6 @@ using HackerNews.BestStories.Api.Configuration;
 using HackerNews.BestStories.Api.Errors;
 using HackerNews.BestStories.Api.Services;
 using HackerNews.BestStories.Api.Tests.Services;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -19,8 +18,10 @@ public sealed class CompleteSnapshotEndpointTests
     {
         var clock = new CompleteSnapshotTests.ManualTime();
         var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var upstream = new CompleteSnapshotTests.Upstream();
-        upstream.Item = async (_, ct) => { entered.TrySetResult(); await Task.Delay(Timeout.Infinite, ct); return null; };
+        var upstream = new CompleteSnapshotTests.Upstream
+        {
+            Item = async (_, ct) => { entered.TrySetResult(); await Task.Delay(Timeout.Infinite, ct); return null; }
+        };
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
             services.RemoveAll<IHackerNewsClient>();
@@ -30,10 +31,10 @@ public sealed class CompleteSnapshotEndpointTests
             services.PostConfigure<HackerNewsOptions>(options => options.RefreshTimeoutSeconds = 2);
         }));
         using var client = factory.CreateClient();
-        var response = client.GetAsync("/api/best-stories?n=1");
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var response = client.GetAsync("/api/best-stories?n=1", TestContext.Current.CancellationToken);
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         clock.Advance(TimeSpan.FromSeconds(2));
-        Assert.Equal(HttpStatusCode.GatewayTimeout, (await response.WaitAsync(TimeSpan.FromSeconds(5))).StatusCode);
+        Assert.Equal(HttpStatusCode.GatewayTimeout, (await response.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken)).StatusCode);
     }
 
     [Theory]
@@ -42,10 +43,12 @@ public sealed class CompleteSnapshotEndpointTests
     public async Task RealService_PartialFailure_Returns502Or504_ThenStaleSuccess(bool timeout, HttpStatusCode expected)
     {
         var clock = new CompleteSnapshotTests.ManualTime();
-        var upstream = new CompleteSnapshotTests.Upstream();
-        upstream.Item = (id, _) => id == 2
-            ? throw (timeout ? new UpstreamTimeoutException("timeout") : new HttpRequestException("failure"))
-            : Task.FromResult<HackerNews.BestStories.Api.Models.HackerNewsItem?>(CompleteSnapshotTests.Story(id));
+        var upstream = new CompleteSnapshotTests.Upstream
+        {
+            Item = (id, _) => id == 2
+                ? throw (timeout ? new UpstreamTimeoutException("timeout") : new HttpRequestException("failure"))
+                : Task.FromResult<HackerNews.BestStories.Api.Models.HackerNewsItem?>(CompleteSnapshotTests.Story(id))
+        };
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
             services.RemoveAll<IHackerNewsClient>();
@@ -54,15 +57,15 @@ public sealed class CompleteSnapshotEndpointTests
             services.AddSingleton<TimeProvider>(clock);
         }));
         using var client = factory.CreateClient();
-        Assert.Equal(expected, (await client.GetAsync("/api/best-stories?n=2")).StatusCode);
-        Assert.Equal(expected, (await client.GetAsync("/api/best-stories?n=2")).StatusCode);
+        Assert.Equal(expected, (await client.GetAsync("/api/best-stories?n=2", TestContext.Current.CancellationToken)).StatusCode);
+        Assert.Equal(expected, (await client.GetAsync("/api/best-stories?n=2", TestContext.Current.CancellationToken)).StatusCode);
         Assert.Equal(1, upstream.IdCalls);
         clock.Advance(TimeSpan.FromSeconds(30));
         upstream.Item = (id, _) => Task.FromResult<HackerNews.BestStories.Api.Models.HackerNewsItem?>(CompleteSnapshotTests.Story(id));
-        var success = await client.GetStringAsync("/api/best-stories?n=2");
+        var success = await client.GetStringAsync("/api/best-stories?n=2", TestContext.Current.CancellationToken);
         upstream.Item = (_, _) => throw new HttpRequestException("partial failure");
-        await factory.Services.GetRequiredService<IBestStoriesService>().RefreshAsync(default);
-        Assert.Equal(success, await client.GetStringAsync("/api/best-stories?n=2"));
+        await factory.Services.GetRequiredService<IBestStoriesService>().RefreshAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(success, await client.GetStringAsync("/api/best-stories?n=2", TestContext.Current.CancellationToken));
         Assert.Equal(3, upstream.IdCalls);
     }
 

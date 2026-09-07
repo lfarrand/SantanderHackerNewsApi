@@ -108,7 +108,7 @@ public sealed class HomeTests : BunitContext
 
         gate.Release();
         await cut.InvokeAsync(() => Task.CompletedTask);
-        cut.WaitForAssertion(() =>
+        await cut.WaitForAssertionAsync(() =>
         {
             cut.Markup.Should().NotContain("Loading…");
             cut.Markup.Should().Contain("1 stories");
@@ -173,9 +173,11 @@ public sealed class HomeTests : BunitContext
     }
 
     private static IReadOnlyList<int> GetRankValues(IRenderedComponent<Home> cut)
-        => cut.FindAll("tbody tr td.num:first-child")
-            .Select(cell => int.Parse(cell.TextContent.Trim()))
-            .ToArray();
+        =>
+        [
+            .. cut.FindAll("tbody tr td.num:first-child")
+                .Select(cell => int.Parse(cell.TextContent.Trim()))
+        ];
 
     private static AngleSharp.Dom.IElement GetPagerButton(IRenderedComponent<Home> cut, string label)
         => cut.FindAll("nav.pager button").Single(button => button.TextContent.Trim() == label);

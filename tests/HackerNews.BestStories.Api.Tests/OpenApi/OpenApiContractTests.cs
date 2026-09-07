@@ -26,7 +26,7 @@ public sealed class OpenApiContractTests
                 }
             }));
         using var client = configuredFactory.CreateClient();
-        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        using var document = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json", TestContext.Current.CancellationToken));
         var operation = document.RootElement.GetProperty("paths").GetProperty("/api/best-stories").GetProperty("get");
         var parameter = Assert.Single(operation.GetProperty("parameters").EnumerateArray(),
             parameter => parameter.GetProperty("name").GetString() == "n");
@@ -40,7 +40,7 @@ public sealed class OpenApiContractTests
         if (!configuredMaximum.HasValue)
         {
             var publishedPath = Path.Combine(AppContext.BaseDirectory, "OpenApi", "published-v1.json");
-            using var published = JsonDocument.Parse(await File.ReadAllTextAsync(publishedPath));
+            using var published = JsonDocument.Parse(await File.ReadAllTextAsync(publishedPath, TestContext.Current.CancellationToken));
             var publishedParameter = Assert.Single(published.RootElement.GetProperty("paths")
                 .GetProperty("/api/best-stories").GetProperty("get").GetProperty("parameters").EnumerateArray());
             Assert.Equal("n", publishedParameter.GetProperty("name").GetString());
@@ -76,11 +76,11 @@ public sealed class OpenApiContractTests
         ]));
         using var client = factory.CreateClient();
 
-        var openApiJson = await client.GetStringAsync("/openapi/v1.json");
+        var openApiJson = await client.GetStringAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
         using var openApiDoc = JsonDocument.Parse(openApiJson);
 
         var baselinePath = Path.Combine(AppContext.BaseDirectory, "OpenApi", "openapi-v1-baseline.json");
-        using var baselineDoc = JsonDocument.Parse(await File.ReadAllTextAsync(baselinePath));
+        using var baselineDoc = JsonDocument.Parse(await File.ReadAllTextAsync(baselinePath, TestContext.Current.CancellationToken));
 
         foreach (var expectedPath in baselineDoc.RootElement.GetProperty("paths").EnumerateArray()
                      .Select(x => x.GetString()))
@@ -112,7 +112,7 @@ public sealed class OpenApiContractTests
         AssertStorySchema(openApiDoc.RootElement);
         using var published =
             JsonDocument.Parse(
-                await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "OpenApi", "published-v1.json")));
+                await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "OpenApi", "published-v1.json"), TestContext.Current.CancellationToken));
         AssertStorySchema(published.RootElement);
         Assert.Equal(
             baselineDoc.RootElement.GetProperty("requiredStoryProperties").EnumerateArray().Select(p => p.GetString())
@@ -129,7 +129,7 @@ public sealed class OpenApiContractTests
 
         var responses = openApiDoc.RootElement.GetProperty("paths").GetProperty("/api/best-stories").GetProperty("get")
             .GetProperty("responses");
-        Assert.Equal(new[] { "200", "400", "429", "500", "502", "504" },
+        Assert.Equal(["200", "400", "429", "500", "502", "504"],
             responses.EnumerateObject().Select(p => p.Name).Order());
         var success = responses.GetProperty("200").GetProperty("content").GetProperty("application/json")
             .GetProperty("schema");
@@ -145,7 +145,7 @@ public sealed class OpenApiContractTests
         if (!string.IsNullOrWhiteSpace(exportPath))
         {
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(exportPath))!);
-            await File.WriteAllTextAsync(exportPath, openApiJson);
+            await File.WriteAllTextAsync(exportPath, openApiJson, TestContext.Current.CancellationToken);
         }
     }
 

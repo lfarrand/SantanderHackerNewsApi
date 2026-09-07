@@ -19,7 +19,7 @@ public class BestStoriesClientTests
 
         var sut = new BestStoriesClient(new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") });
 
-        var result = await sut.GetBestStoriesAsync(1);
+        var result = await sut.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         result.Should().BeEmpty();
         handler.Calls.Should().Be(1);
@@ -37,7 +37,7 @@ public class BestStoriesClientTests
 
         var sut = new BestStoriesClient(new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") }, _ => TimeSpan.Zero);
 
-        var result = await sut.GetBestStoriesAsync(1);
+        var result = await sut.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         result.Should().ContainSingle();
         result[0].Should().BeEquivalentTo(new Story("t", "u", "p", DateTimeOffset.Parse("2024-01-01T00:00:00+00:00"), 1, 2));
@@ -73,7 +73,7 @@ public class BestStoriesClientTests
             return TimeSpan.Zero;
         });
 
-        var result = await sut.GetBestStoriesAsync(1);
+        var result = await sut.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         result.Should().BeEmpty();
         handler.Calls.Should().Be(2);
@@ -103,7 +103,7 @@ public class BestStoriesClientTests
 
         var sut = new BestStoriesClient(new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") }, _ => TimeSpan.FromMilliseconds(1));
 
-        var result = await sut.GetBestStoriesAsync(1);
+        var result = await sut.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         result.Should().BeEmpty();
         handler.Calls.Should().Be(2);
@@ -120,7 +120,7 @@ public class BestStoriesClientTests
 
         var sut = new BestStoriesClient(new HttpClient(handler) { BaseAddress = new Uri("http://localhost/") }, _ => TimeSpan.Zero);
 
-        var result = await sut.GetBestStoriesAsync(5);
+        var result = await sut.GetBestStoriesAsync(5, TestContext.Current.CancellationToken);
 
         result.Should().BeEmpty();
         handler.Calls.Should().Be(1);
@@ -201,7 +201,7 @@ public class BestStoriesClientTests
             return TimeSpan.Zero;
         });
 
-        var result = await sut.GetBestStoriesAsync(3);
+        var result = await sut.GetBestStoriesAsync(3, TestContext.Current.CancellationToken);
 
         result.Should().BeEmpty();
         handler.Calls.Should().Be(2);

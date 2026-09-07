@@ -48,7 +48,7 @@ public sealed class ProgramStartupTests
                 ["ApiClient:RequestTimeoutSeconds"] = requestSeconds.ToString(),
                 ["ApiClient:RefreshTimeoutSeconds"] = refreshSeconds.ToString()
             })));
-        Assert.Throws<OptionsValidationException>(() => factory.CreateClient());
+        Assert.Throws<OptionsValidationException>(factory.CreateClient);
     }
 
     [Theory]
@@ -70,11 +70,11 @@ public sealed class ProgramStartupTests
         using var httpClient = CreateTypedHttpClient(factory.Services);
         Assert.Equal(TimeSpan.FromSeconds(requestSeconds), httpClient.Timeout);
         Assert.True(httpClient.Timeout > TimeSpan.FromSeconds(refreshSeconds));
-        var result = factory.Services.GetRequiredService<BestStoriesClient>().GetBestStoriesAsync(1);
-        await handler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var result = factory.Services.GetRequiredService<BestStoriesClient>().GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
+        await handler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
         Assert.False(result.IsCompleted);
         handler.Release.SetResult();
-        var story = Assert.Single(await result.WaitAsync(TimeSpan.FromSeconds(5)));
+        var story = Assert.Single(await result.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
         Assert.Equal("Delayed snapshot", story.Title);
         Assert.Equal("https://example.test/story", story.Uri);
         Assert.Equal(1, handler.Calls);
@@ -87,7 +87,7 @@ public sealed class ProgramStartupTests
         await using var factory = new BlazorAppFactory(environment: "Development", replaceBestStoriesClient: true);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/");
+        var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
 
         Assert.True(response.IsSuccessStatusCode);
     }
@@ -98,7 +98,7 @@ public sealed class ProgramStartupTests
         await using var factory = new BlazorAppFactory(environment: "Production", replaceBestStoriesClient: true);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/");
+        var response = await client.GetAsync("/", TestContext.Current.CancellationToken);
 
         Assert.True(response.IsSuccessStatusCode);
     }

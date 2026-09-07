@@ -13,7 +13,7 @@ public sealed class HackerNewsClientTests
     public async Task InvalidIdCollection_IsUpstreamFailure(string json)
     {
         var client = CreateClient(new StubHandler(_ => new(HttpStatusCode.OK) { Content = new StringContent(json) }));
-        await Assert.ThrowsAsync<HackerNews.BestStories.Api.Errors.UpstreamException>(() => client.GetBestStoryIdsAsync(default));
+        await Assert.ThrowsAsync<HackerNews.BestStories.Api.Errors.UpstreamException>(() => client.GetBestStoryIdsAsync(TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -21,17 +21,20 @@ public sealed class HackerNewsClientTests
     {
         var client = CreateClient(new StubHandler(request => new(HttpStatusCode.OK)
         { Content = new StringContent(request.RequestUri!.ToString().Contains("beststories") ? "[]" : "null") }));
-        Assert.Empty(await client.GetBestStoryIdsAsync(default));
-        Assert.Null(await client.GetItemAsync(1, default));
+        Assert.Empty(await client.GetBestStoryIdsAsync(TestContext.Current.CancellationToken));
+        Assert.Null(await client.GetItemAsync(1, TestContext.Current.CancellationToken));
     }
 
     [Fact]
     public async Task RequestTimeout_IsTyped_WhileCallerCancellationIsNot()
     {
         var client = CreateClient(new StubHandler(_ => throw new TaskCanceledException("HTTP timeout", new TimeoutException())));
-        await Assert.ThrowsAsync<HackerNews.BestStories.Api.Errors.UpstreamTimeoutException>(() => client.GetBestStoryIdsAsync(default));
+        // A non-cancellable caller distinguishes the HTTP timeout from caller cancellation.
+#pragma warning disable xUnit1051
+        await Assert.ThrowsAsync<HackerNews.BestStories.Api.Errors.UpstreamTimeoutException>(() => client.GetBestStoryIdsAsync(CancellationToken.None));
+#pragma warning restore xUnit1051
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => client.GetBestStoryIdsAsync(cancellation.Token));
     }
     [Fact]
@@ -43,7 +46,7 @@ public sealed class HackerNewsClientTests
         });
         var client = CreateClient(handler);
 
-        var result = await client.GetBestStoryIdsAsync(CancellationToken.None);
+        var result = await client.GetBestStoryIdsAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(new long[] { 1, 2, 3 }, result);
         Assert.EndsWith("beststories.json", handler.LastRequestPath, StringComparison.Ordinal);
@@ -58,7 +61,7 @@ public sealed class HackerNewsClientTests
         });
         var client = CreateClient(handler);
 
-        var result = await client.GetItemAsync(42, CancellationToken.None);
+        var result = await client.GetItemAsync(42, TestContext.Current.CancellationToken);
 
         Assert.NotNull(result);
         Assert.Equal(42, result!.Id);
@@ -71,7 +74,7 @@ public sealed class HackerNewsClientTests
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError));
         var client = CreateClient(handler);
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetBestStoryIdsAsync(CancellationToken.None));
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetBestStoryIdsAsync(TestContext.Current.CancellationToken));
     }
 
     private static HackerNewsClient CreateClient(HttpMessageHandler handler)

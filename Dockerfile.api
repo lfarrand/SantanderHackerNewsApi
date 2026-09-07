@@ -18,7 +18,7 @@ COPY src/HackerNews.BestStories.Api/HackerNews.BestStories.Api.csproj \
      src/HackerNews.BestStories.Api/
 
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    dotnet restore src/HackerNews.BestStories.Api/HackerNews.BestStories.Api.csproj
+    dotnet restore src/HackerNews.BestStories.Api/HackerNews.BestStories.Api.csproj --locked-mode
 
 COPY src/HackerNews.BestStories.Api/ src/HackerNews.BestStories.Api/
 

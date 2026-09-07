@@ -22,7 +22,7 @@ public sealed class BestStoriesService(IHackerNewsClient client, IAppCache cache
     {
         var snapshot = await cache.GetOrCreateAsync(CacheKey, PopulateAsync, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        return snapshot.GetStories().Take(requestedCount).ToArray();
+        return [.. snapshot.GetStories().Take(requestedCount)];
     }
 
     public async Task RefreshAsync(CancellationToken cancellationToken)
@@ -82,15 +82,14 @@ public sealed class BestStoriesService(IHackerNewsClient client, IAppCache cache
             var story = item is null ? null : StoryMapper.Map(item);
             if (story is not null) stories.Add(story);
         });
-        return stories.OrderByDescending(story => story.Score).ThenBy(story => story.Id).ToArray();
+        return [.. stories.OrderByDescending(story => story.Score).ThenBy(story => story.Id)];
     }
 
     private sealed record Snapshot(IReadOnlyList<StoryDto>? Stories, UpstreamException? Error)
     {
         public IReadOnlyList<StoryDto> GetStories()
         {
-            if (Error is not null) throw Error;
-            return Stories!;
+            return Error is not null ? throw Error : Stories!;
         }
     }
 }
