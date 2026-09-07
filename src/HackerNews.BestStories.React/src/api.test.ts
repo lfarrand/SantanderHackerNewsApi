@@ -62,8 +62,8 @@ describe("fetchBestStories", () => {
       const result = await api.fetchBestStories(7, { fetchImpl });
 
       expect(result).toEqual([story]);
-      expect(fetchImpl).toHaveBeenCalledExactlyOnceWith(expectedUrl);
-    });
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      expect(fetchImpl).toHaveBeenCalledWith(expectedUrl);
   });
 
   it("returns stories on the first 200", async () => {
