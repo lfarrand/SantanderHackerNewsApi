@@ -8,6 +8,8 @@ services:
       HackerNews__BaseUrl: http://upstream:8080/v0/
       HackerNews__RequestTimeoutSeconds: "10"
       HackerNews__RefreshTimeoutSeconds: "120"
+      ReverseProxy__KnownProxies__0: ${HN_PROXY_IP}
+      ReverseProxy__KnownNetworks__0: ${HN_PROXY_IP}/32
     depends_on:
       upstream:
         condition: service_healthy
@@ -18,6 +20,9 @@ services:
     container_name: ${HN_SMOKE_PROJECT}-web
     ports: !override
       - "127.0.0.1::80"
+    networks:
+      hn-backend:
+        ipv4_address: ${HN_PROXY_IP}
     restart: "no"
 
   blazor:
