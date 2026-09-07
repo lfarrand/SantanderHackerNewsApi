@@ -71,9 +71,9 @@ public sealed class BestStoriesService(IHackerNewsClient client, IAppCache cache
     private async Task<IReadOnlyList<StoryDto>> LoadStoriesAsync(CancellationToken cancellationToken)
     {
         var ids = await client.GetBestStoryIdsAsync(cancellationToken);
+        var candidates = ids.Distinct().Take(options.MaxStories);
         var stories = new ConcurrentBag<StoryDto>();
-        await Parallel.ForEachAsync(ids.Distinct(), new ParallelOptions
-        {
+        await Parallel.ForEachAsync(candidates, new ParallelOptions
             MaxDegreeOfParallelism = options.MaxConcurrency,
             CancellationToken = cancellationToken
         }, async (id, token) =>
