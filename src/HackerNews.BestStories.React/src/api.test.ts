@@ -64,6 +64,7 @@ describe("fetchBestStories", () => {
       expect(result).toEqual([story]);
       expect(fetchImpl).toHaveBeenCalledTimes(1);
       expect(fetchImpl).toHaveBeenCalledWith(expectedUrl);
+    });
   });
 
   it("returns stories on the first 200", async () => {
