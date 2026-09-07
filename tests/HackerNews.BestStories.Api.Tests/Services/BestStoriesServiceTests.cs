@@ -23,7 +23,7 @@ public sealed class BestStoriesServiceTests
         var options = new HackerNewsOptions { MaxStories = 3, CacheTtlSeconds = 60, MaxConcurrency = 4 };
         var service = new BestStoriesService(client, cache, options);
 
-        var result = await service.GetBestStoriesAsync(2, CancellationToken.None);
+        var result = await service.GetBestStoriesAsync(2, TestContext.Current.CancellationToken);
 
         Assert.Collection(
             result,
@@ -45,8 +45,8 @@ public sealed class BestStoriesServiceTests
         var options = new HackerNewsOptions { MaxStories = 2, CacheTtlSeconds = 60 };
         var service = new BestStoriesService(client, cache, options);
 
-        _ = await service.GetBestStoriesAsync(1, CancellationToken.None);
-        var result = await service.GetBestStoriesAsync(2, CancellationToken.None);
+        _ = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
+        var result = await service.GetBestStoriesAsync(2, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, result.Count);
     }
@@ -59,7 +59,7 @@ public sealed class BestStoriesServiceTests
         var service = new BestStoriesService(client, cache, new HackerNewsOptions());
 
         var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.GetBestStoriesAsync(10, cts.Token));
     }
@@ -77,18 +77,18 @@ public sealed class BestStoriesServiceTests
             FailureCacheTtlSeconds = 30
         });
 
-        _ = await service.GetBestStoriesAsync(1, CancellationToken.None);
+        _ = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
         client.FailNext = true;
-        await service.RefreshAsync(CancellationToken.None);
+        await service.RefreshAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, client.GetBestStoriesCalls);
 
-        var result = await service.GetBestStoriesAsync(1, CancellationToken.None);
+        var result = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         Assert.Single(result);
         Assert.Equal(1, result[0].Id);
 
         var callsAfterFailure = client.GetBestStoriesCalls;
-        var cachedFallback = await service.GetBestStoriesAsync(1, CancellationToken.None);
+        var cachedFallback = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         Assert.Single(cachedFallback);
         Assert.Equal(1, cachedFallback[0].Id);
@@ -105,8 +105,8 @@ public sealed class BestStoriesServiceTests
         var cache = new InMemoryAppCache();
         var service = new BestStoriesService(client, cache, new HackerNewsOptions { CacheTtlSeconds = 60 });
 
-        _ = await service.GetBestStoriesAsync(1, CancellationToken.None);
-        _ = await service.GetBestStoriesAsync(1, CancellationToken.None);
+        _ = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
+        _ = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         Assert.Equal(1, client.GetBestStoriesCalls);
     }
@@ -119,7 +119,7 @@ public sealed class BestStoriesServiceTests
         var service = new BestStoriesService(client, cache, new HackerNewsOptions());
 
         await Assert.ThrowsAsync<HackerNews.BestStories.Api.Errors.UpstreamException>(
-            () => service.GetBestStoriesAsync(10, CancellationToken.None));
+            () => service.GetBestStoriesAsync(10, TestContext.Current.CancellationToken));
     }
 
     [Fact]
@@ -132,10 +132,10 @@ public sealed class BestStoriesServiceTests
         var cache = new InMemoryAppCache();
         var service = new BestStoriesService(client, cache, new HackerNewsOptions { CacheTtlSeconds = 60 });
 
-        _ = await service.GetBestStoriesAsync(1, CancellationToken.None);
-        await service.RefreshAsync(CancellationToken.None);
+        _ = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
+        await service.RefreshAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, client.GetBestStoriesCalls);
-        _ = await service.GetBestStoriesAsync(1, CancellationToken.None);
+        _ = await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken);
 
         Assert.Equal(2, client.GetBestStoriesCalls);
     }
@@ -146,16 +146,16 @@ public sealed class BestStoriesServiceTests
         var client = new GatedClient();
         var service = new BestStoriesService(client, new InMemoryAppCache(), new HackerNewsOptions());
         client.Release.SetResult([1]);
-        Assert.Equal(1, Assert.Single(await service.GetBestStoriesAsync(1, default)).Id);
+        Assert.Equal(1, Assert.Single(await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken)).Id);
         client.Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        var refresh = service.RefreshAsync(default);
-        var joined = service.RefreshAsync(default);
+        var refresh = service.RefreshAsync(TestContext.Current.CancellationToken);
+        var joined = service.RefreshAsync(TestContext.Current.CancellationToken);
         Assert.Equal(2, client.IdCalls);
         Assert.False(refresh.IsCompleted);
-        Assert.Equal(1, Assert.Single(await service.GetBestStoriesAsync(1, default)).Id);
+        Assert.Equal(1, Assert.Single(await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken)).Id);
         client.Release.SetResult([2]);
-        await Task.WhenAll(refresh, joined).WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(2, Assert.Single(await service.GetBestStoriesAsync(1, default)).Id);
+        await Task.WhenAll(refresh, joined).WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal(2, Assert.Single(await service.GetBestStoriesAsync(1, TestContext.Current.CancellationToken)).Id);
         Assert.Equal(2, client.IdCalls);
         Assert.Equal(2, client.ItemCalls);
     }
@@ -167,16 +167,19 @@ public sealed class BestStoriesServiceTests
         var service = new BestStoriesService(client, new InMemoryAppCache(), new HackerNewsOptions());
         using var caller = new CancellationTokenSource();
         var cancelled = service.GetBestStoriesAsync(1, caller.Token);
-        var remaining = service.GetBestStoriesAsync(2, default);
-        var refresh = service.RefreshAsync(default);
-        caller.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled.WaitAsync(TimeSpan.FromSeconds(5)));
+        // These callers deliberately cannot cancel the shared load.
+#pragma warning disable xUnit1051
+        var remaining = service.GetBestStoriesAsync(2, CancellationToken.None);
+        var refresh = service.RefreshAsync(CancellationToken.None);
+#pragma warning restore xUnit1051
+        await caller.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken));
         Assert.Equal(1, client.IdCalls);
         Assert.False(client.LoaderToken.IsCancellationRequested);
         client.Release.SetResult([1, 2]);
-        var stories = await remaining.WaitAsync(TimeSpan.FromSeconds(5));
-        await refresh.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(new long[] { 2, 1 }, stories.Select(story => story.Id));
+        var stories = await remaining.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        await refresh.WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
+        Assert.Equal([2, 1], stories.Select(story => story.Id));
         Assert.Equal(1, client.IdCalls);
         Assert.Equal(2, client.ItemCalls);
     }

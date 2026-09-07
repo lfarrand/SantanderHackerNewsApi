@@ -102,11 +102,13 @@
         get
         {
             var start = (CurrentPage - 1) * pageSize;
-            return stories
-                .Skip(start)
-                .Take(pageSize)
-                .Select((story, index) => (start + index + 1, story))
-                .ToArray();
+            return
+            [
+                .. stories
+                    .Skip(start)
+                    .Take(pageSize)
+                    .Select((story, index) => (start + index + 1, story))
+            ];
         }
     }
 

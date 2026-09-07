@@ -35,25 +35,25 @@ public sealed class RuntimeProblemContractTests
         if (status == 429)
             for (var request = 0; request < 60; request++)
             {
-                using var accepted = await client.GetAsync("/api/best-stories?n=1");
+                using var accepted = await client.GetAsync("/api/best-stories?n=1", TestContext.Current.CancellationToken);
                 Assert.Equal(200, (int)accepted.StatusCode);
                 Assert.Equal("application/json", accepted.Content.Headers.ContentType!.MediaType);
             }
 
-        using var response = await client.GetAsync("/api/best-stories" + query);
+        using var response = await client.GetAsync("/api/best-stories" + query, TestContext.Current.CancellationToken);
         Assert.Equal(status, (int)response.StatusCode);
         var mediaType = response.Content.Headers.ContentType?.MediaType;
         Assert.Equal("application/problem+json", mediaType);
-        var body = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         using var problem = JsonDocument.Parse(body);
         Assert.Equal(status, problem.RootElement.GetProperty("status").GetInt32());
         Assert.False(string.IsNullOrWhiteSpace(problem.RootElement.GetProperty("title").GetString()));
         Assert.DoesNotContain("secret", body);
         Assert.Equal(status == 400 ? 0 : 1, upstream.IdCalls);
 
-        using var live = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json"));
+        using var live = JsonDocument.Parse(await client.GetStringAsync("/openapi/v1.json", TestContext.Current.CancellationToken));
         using var published = JsonDocument.Parse(await File.ReadAllTextAsync(
-            Path.Combine(AppContext.BaseDirectory, "OpenApi", "published-v1.json")));
+            Path.Combine(AppContext.BaseDirectory, "OpenApi", "published-v1.json"), TestContext.Current.CancellationToken));
         foreach (var document in new[] { live, published })
         {
             var content = document.RootElement.GetProperty("paths").GetProperty("/api/best-stories")

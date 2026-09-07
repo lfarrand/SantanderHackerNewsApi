@@ -1,6 +1,7 @@
 services:
   api:
-    image: ${HN_SMOKE_PROJECT}-api:smoke
+    image: ${HN_SMOKE_API_IMAGE:-${HN_SMOKE_PROJECT}-api:smoke}
+    pull_policy: never
     container_name: ${HN_SMOKE_PROJECT}-api
     ports: !override
       - "127.0.0.1::8080"
@@ -16,7 +17,8 @@ services:
     restart: "no"
 
   web:
-    image: ${HN_SMOKE_PROJECT}-web:smoke
+    image: ${HN_SMOKE_WEB_IMAGE:-${HN_SMOKE_PROJECT}-web:smoke}
+    pull_policy: never
     container_name: ${HN_SMOKE_PROJECT}-web
     ports: !override
       - "127.0.0.1::80"
@@ -26,7 +28,8 @@ services:
     restart: "no"
 
   blazor:
-    image: ${HN_SMOKE_PROJECT}-blazor:smoke
+    image: ${HN_SMOKE_BLAZOR_IMAGE:-${HN_SMOKE_PROJECT}-blazor:smoke}
+    pull_policy: never
     container_name: ${HN_SMOKE_PROJECT}-blazor
     ports: !override
       - "127.0.0.1::8080"
@@ -39,6 +42,8 @@ services:
     image: python:3.12.13-bookworm
     container_name: ${HN_SMOKE_PROJECT}-upstream
     command: [python, -B, -u, /smoke/fixture.py]
+    environment:
+      HN_SMOKE_SCENARIO: ${HN_SMOKE_SCENARIO:-Smoke}
     volumes:
       - ./tests/smoke:/smoke:ro
     networks:

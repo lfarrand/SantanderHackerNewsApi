@@ -1,0 +1,10 @@
+﻿{
+  "platformOptions": {
+    "Coverlet": {
+      "format": "cobertura",
+      "include": "[HackerNews.BestStories.Api]*",
+      "exclude": "[HackerNews.BestStories.Api.Tests]*",
+      "includeTestAssembly": false
+    }
+  }
+}

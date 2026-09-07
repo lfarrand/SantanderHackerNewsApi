@@ -27,7 +27,7 @@ public sealed class StubBestStoriesService(IReadOnlyList<StoryDto> stories) : IB
     public Task<IReadOnlyList<StoryDto>> GetBestStoriesAsync(int n, CancellationToken cancellationToken)
     {
         Calls++;
-        return Task.FromResult<IReadOnlyList<StoryDto>>(stories.Take(n).ToArray());
+        return Task.FromResult<IReadOnlyList<StoryDto>>([.. stories.Take(n)]);
     }
 
     public Task RefreshAsync(CancellationToken cancellationToken) => Task.CompletedTask;

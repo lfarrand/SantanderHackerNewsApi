@@ -15,10 +15,16 @@ COPY src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj \
      src/HackerNews.BestStories.Blazor/packages.lock.json \
      src/HackerNews.BestStories.Blazor/
 
+# Razor files activate the implicit assets dependency recorded in the lock file.
+COPY src/HackerNews.BestStories.Blazor/Components/ src/HackerNews.BestStories.Blazor/Components/
+
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
-    dotnet restore src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj
+    dotnet restore src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj --locked-mode
 
 COPY src/HackerNews.BestStories.Blazor/ src/HackerNews.BestStories.Blazor/
+
+RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
+    dotnet restore src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj --locked-mode
 
 RUN --mount=type=cache,id=nuget,target=/root/.nuget/packages \
     dotnet publish src/HackerNews.BestStories.Blazor/HackerNews.BestStories.Blazor.csproj \

@@ -1,0 +1,69 @@
+# Hacker News @@VERSION@@ — @@KIND@@
+
+Source commit: @@COMMIT@@. Target: Linux/amd64. See manifest.json for source
+image tags/IDs and SHA-256 hashes of every payload file (the manifest does not
+hash itself). SHA256SUMS in the release covers all seven complete ZIPs.
+
+## Image deployment (Docker Compose v2)
+
+The combined bundle has all six payloads under applications/ and images/;
+there are no nested ZIPs. For individual image bundles, extract all three into
+one directory (their compose files are identical). Load each included TAR:
+
+```sh
+docker load --input images/api.tar
+docker load --input images/blazor.tar
+docker load --input images/react.tar
+docker compose -p hackernews-release -f compose.release.yml up -d --no-build --pull never
+```
+
+API: http://localhost:8080/health; React: http://localhost:8081;
+Blazor: http://localhost:8082. Stop with
+`docker compose -p hackernews-release -f compose.release.yml down`.
+Logs persist in the project's api-logs volume; down does not delete it.
+No checkout, build context, fixture, Portainer, or registry is required.
+This is the production stack: it uses the live Hacker News upstream by default.
+
+Release/default Compose trusts the configured Docker subnet (default
+172.30.80.0/24), unlike smoke's single-proxy trust. Keep this subnet private;
+only trusted containers should join it. Set HN_DOCKER_SUBNET for collisions.
+HN_BASE_URL, HN_REQUEST_TIMEOUT_SECONDS (10), HN_REFRESH_TIMEOUT_SECONDS (120),
+and HN_BLAZOR_TIMEOUT_SECONDS (130) retain the default stack's semantics.
+
+## Framework-dependent applications (without their images)
+
+Install the .NET 10 **ASP.NET Core runtime** for Linux x64 (not only the base
+.NET runtime). No SDK or self-contained executable is included. From the
+extracted application directory, run:
+
+```sh
+cd applications/api
+ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_HTTP_PORTS=8080 dotnet HackerNews.BestStories.Api.dll
+```
+
+In a second terminal, from the extraction root:
+
+```sh
+cd applications/blazor
+ASPNETCORE_ENVIRONMENT=Production ASPNETCORE_HTTP_PORTS=8082 ApiBaseUrl=http://localhost:8080/ dotnet HackerNews.BestStories.Blazor.dll
+```
+
+Keep each publish directory and Blazor wwwroot intact. Give the API a writable
+logs directory. Set ApiBaseUrl to the API's address as reachable **from the
+Blazor server**, including its trailing slash. Configure trusted proxies
+explicitly when deploying the applications behind your own proxy.
+
+## React static application
+
+applications/react/html contains production static assets;
+applications/react/nginx/default.conf is the matching nginx/proxy config.
+Serve them with nginx at /usr/share/nginx/html and
+/etc/nginx/conf.d/default.conf respectively. This is not a file:// application.
+Its /api proxy expects the Docker DNS name api:8080 on the shared network and
+Docker's DNS resolver; outside Docker, adapt DNS/upstream configuration to
+your deployment. Prefer the supplied React image/Compose to preserve the
+tested policy. The application-only ZIP does not include nginx itself.
+
+Individual application ZIPs contain only the named application's payload.
+Their compose file is provided for reference/image deployment and requires
+the three separately loaded images; it does not rebuild application files.

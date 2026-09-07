@@ -9,11 +9,14 @@ public sealed class GlobalExceptionHandlerTests
     public async Task CallerCancellation_IsNotHandledAsTimeout()
     {
         using var cancellation = new CancellationTokenSource();
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         var context = new Microsoft.AspNetCore.Http.DefaultHttpContext { RequestAborted = cancellation.Token };
         var handler = new HackerNews.BestStories.Api.Errors.GlobalExceptionHandler(
             Microsoft.Extensions.Logging.Abstractions.NullLogger<HackerNews.BestStories.Api.Errors.GlobalExceptionHandler>.Instance);
-        Assert.False(await handler.TryHandleAsync(context, new OperationCanceledException(cancellation.Token), default));
+        // Only RequestAborted is cancelled; the handler's independent token must remain default.
+#pragma warning disable xUnit1051
+        Assert.False(await handler.TryHandleAsync(context, new OperationCanceledException(cancellation.Token), CancellationToken.None));
+#pragma warning restore xUnit1051
         Assert.Equal(200, context.Response.StatusCode);
     }
     [Theory]
@@ -32,7 +35,7 @@ public sealed class GlobalExceptionHandlerTests
         await using var factory = new ApiFactory(service);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/api/best-stories?n=1");
+        var response = await client.GetAsync("/api/best-stories?n=1", TestContext.Current.CancellationToken);
 
         Assert.Equal(expected, response.StatusCode);
     }

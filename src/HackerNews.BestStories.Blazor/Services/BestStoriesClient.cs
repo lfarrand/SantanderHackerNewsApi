@@ -7,7 +7,7 @@ public sealed class BestStoriesClient(HttpClient http, Func<int, TimeSpan> delay
 {
     public const int MaxStories = 500;
     public const int MaxAttempts = 4;
-    public const int BaseDelayMs = 250;
+    private const int BaseDelayMs = 250;
 
     [ActivatorUtilitiesConstructor]
     public BestStoriesClient(HttpClient http)

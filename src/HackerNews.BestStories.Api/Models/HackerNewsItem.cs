@@ -5,26 +5,26 @@ namespace HackerNews.BestStories.Api.Models;
 public sealed class HackerNewsItem
 {
     [JsonPropertyName("id")]
-    public long Id { get; set; }
+    public long Id { get; init; }
 
     [JsonPropertyName("type")]
     public string? Type { get; set; }
 
     [JsonPropertyName("by")]
-    public string? By { get; set; }
+    public string? By { get; init; }
 
     [JsonPropertyName("time")]
-    public long Time { get; set; }
+    public long Time { get; init; }
 
     [JsonPropertyName("title")]
     public string? Title { get; set; }
 
     [JsonPropertyName("url")]
-    public string? Url { get; set; }
+    public string? Url { get; init; }
 
     [JsonPropertyName("score")]
-    public int Score { get; set; }
+    public int Score { get; init; }
 
     [JsonPropertyName("descendants")]
-    public int Descendants { get; set; }
+    public int Descendants { get; init; }
 }

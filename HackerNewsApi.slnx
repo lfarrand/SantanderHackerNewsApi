@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/CI/">
+    <File Path=".github/workflows/ci.yml" />
+  </Folder>
   <Folder Name="/Docker/">
     <File Path="docker-compose.yml" />
     <File Path="Dockerfile.api" />
@@ -18,6 +21,7 @@
     <Project Path="src/HackerNews.BestStories.React/HackerNews.BestStories.React.esproj" />
   </Folder>
   <Folder Name="/tests/">
+    <File Path="tests/run-dotnet-tests.ps1" />
     <Project Path="tests/HackerNews.BestStories.Api.Tests/HackerNews.BestStories.Api.Tests.csproj" />
     <Project Path="tests/HackerNews.BestStories.Blazor.Tests/HackerNews.BestStories.Blazor.Tests.csproj" />
   </Folder>

@@ -1,0 +1,67 @@
+services:
+  api:
+    image: @@API@@
+    platform: linux/amd64
+    pull_policy: never
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      HackerNews__BaseUrl: ${HN_BASE_URL:-https://hacker-news.firebaseio.com/v0/}
+      HackerNews__MaxStories: "500"
+      HackerNews__CacheTtlSeconds: "300"
+      HackerNews__FailureCacheTtlSeconds: "30"
+      HackerNews__MaxConcurrency: "20"
+      HackerNews__RequestTimeoutSeconds: ${HN_REQUEST_TIMEOUT_SECONDS:-10}
+      HackerNews__RefreshTimeoutSeconds: ${HN_REFRESH_TIMEOUT_SECONDS:-120}
+      ReverseProxy__KnownNetworks__0: ${HN_DOCKER_SUBNET:-172.30.80.0/24}
+    networks:
+      - hn-backend
+    volumes:
+      - api-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 8
+      start_period: 25s
+    restart: unless-stopped
+  web:
+    image: @@WEB@@
+    platform: linux/amd64
+    pull_policy: never
+    ports:
+      - "8081:80"
+    networks:
+      - hn-backend
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+  blazor:
+    image: @@BLAZOR@@
+    platform: linux/amd64
+    pull_policy: never
+    ports:
+      - "8082:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ApiBaseUrl: http://api:8080/
+      ApiClient__RequestTimeoutSeconds: ${HN_BLAZOR_TIMEOUT_SECONDS:-130}
+      ApiClient__RefreshTimeoutSeconds: ${HN_REFRESH_TIMEOUT_SECONDS:-120}
+    networks:
+      - hn-backend
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+networks:
+  hn-backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${HN_DOCKER_SUBNET:-172.30.80.0/24}
+volumes:
+  api-logs:

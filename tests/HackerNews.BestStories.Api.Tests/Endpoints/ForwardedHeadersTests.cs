@@ -131,7 +131,7 @@ public sealed class ForwardedHeadersTests
     public void Startup_RejectsInvalidProxyTrust(string setting, string trusted)
     {
         using var factory = CreateFactory(setting, trusted);
-        Assert.Throws<OptionsValidationException>(() => factory.CreateClient());
+        Assert.Throws<OptionsValidationException>(factory.CreateClient);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(string setting, string? trusted,

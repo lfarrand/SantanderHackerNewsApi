@@ -21,9 +21,9 @@ public sealed class BestStoriesEndpointTests
         });
         await using var factory = new ApiFactory(new StubBestStoriesService([story!]));
         using var client = factory.CreateClient();
-        using var json = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync("/api/best-stories?n=1"));
+        using var json = System.Text.Json.JsonDocument.Parse(await client.GetStringAsync("/api/best-stories?n=1", TestContext.Current.CancellationToken));
         var item = Assert.Single(json.RootElement.EnumerateArray());
-        Assert.Equal(new[] { "commentCount", "postedBy", "score", "time", "title", "uri" },
+        Assert.Equal(["commentCount", "postedBy", "score", "time", "title", "uri"],
             item.EnumerateObject().Select(p => p.Name).Order());
         Assert.Equal("Sample", item.GetProperty("title").GetString());
         Assert.Equal("https://news.ycombinator.com/item?id=42", item.GetProperty("uri").GetString());
@@ -48,10 +48,10 @@ public sealed class BestStoriesEndpointTests
                 })));
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/api/best-stories");
+        var response = await client.GetAsync("/api/best-stories", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestContext.Current.CancellationToken);
         Assert.NotNull(problem);
         Assert.Equal("Invalid n", problem.Title);
         Assert.Equal(
@@ -75,11 +75,11 @@ public sealed class BestStoriesEndpointTests
         await using var factory = new ApiFactory(service);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync(url);
+        var response = await client.GetAsync(url, TestContext.Current.CancellationToken);
 
         response.EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        var payload = await response.Content.ReadFromJsonAsync<StoryDto[]>();
+        var payload = await response.Content.ReadFromJsonAsync<StoryDto[]>(TestContext.Current.CancellationToken);
         Assert.NotNull(payload);
         Assert.Equal(expectedCount, payload.Length);
         Assert.Equal(stories.Take(expectedCount).Select(story => story.Title), payload.Select(story => story.Title));
@@ -96,10 +96,10 @@ public sealed class BestStoriesEndpointTests
         await using var factory = new ApiFactory(service);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync(url);
+        var response = await client.GetAsync(url, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+        var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestContext.Current.CancellationToken);
         Assert.NotNull(problem);
         Assert.Equal("Invalid n", problem.Title);
         Assert.Equal("n must be between 1 and 500.", problem.Detail);
@@ -114,10 +114,10 @@ public sealed class BestStoriesEndpointTests
         await using var factory = new ApiFactory(service);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/api/best-stories?n=501");
+        var response = await client.GetAsync("/api/best-stories?n=501", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        var payload = await response.Content.ReadAsStringAsync();
+        var payload = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("\"title\":\"Invalid n\"", payload);
         Assert.Contains("\"detail\":\"n must be between 1 and 500.\"", payload);
         Assert.Equal(0, service.Calls);
@@ -135,7 +135,7 @@ public sealed class BestStoriesEndpointTests
         await using var factory = baseFactory.WithWebHostBuilder(builder => builder.UseEnvironment("Production"));
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync($"/api/best-stories?n={n}");
+        var response = await client.GetAsync($"/api/best-stories?n={n}", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal(0, service.Calls);
@@ -146,9 +146,10 @@ public sealed class BestStoriesEndpointTests
     [InlineData(4)]
     public async Task GetBestStories_UsesConfiguredMaximum(int n)
     {
-        var service = new StubBestStoriesService(Enumerable.Range(1, 4)
-            .Select(id => new StoryDto { Id = id, Title = $"Story {id}", Score = 5 - id })
-            .ToArray());
+        var service = new StubBestStoriesService([
+            .. Enumerable.Range(1, 4)
+                .Select(id => new StoryDto { Id = id, Title = $"Story {id}", Score = 5 - id })
+        ]);
         await using var baseFactory = new ApiFactory(service);
         await using var factory = baseFactory.WithWebHostBuilder(builder =>
             builder.ConfigureAppConfiguration((_, config) =>
@@ -158,20 +159,20 @@ public sealed class BestStoriesEndpointTests
                 })));
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync($"/api/best-stories?n={n}");
+        var response = await client.GetAsync($"/api/best-stories?n={n}", TestContext.Current.CancellationToken);
 
         if (n == 3)
         {
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-            var payload = await response.Content.ReadFromJsonAsync<StoryDto[]>();
+            var payload = await response.Content.ReadFromJsonAsync<StoryDto[]>(TestContext.Current.CancellationToken);
             Assert.NotNull(payload);
-            Assert.Equal(new[] { "Story 1", "Story 2", "Story 3" }, payload.Select(story => story.Title));
+            Assert.Equal(["Story 1", "Story 2", "Story 3"], payload.Select(story => story.Title));
             Assert.Equal(1, service.Calls);
         }
         else
         {
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>();
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetails>(TestContext.Current.CancellationToken);
             Assert.NotNull(problem);
             Assert.Equal("Invalid n", problem.Title);
             Assert.Equal("n must be between 1 and 3.", problem.Detail);
@@ -192,7 +193,7 @@ public sealed class BestStoriesEndpointTests
         await using var factory = new ApiFactory(service);
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync(url);
+        var response = await client.GetAsync(url, TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal(0, service.Calls);
@@ -207,7 +208,7 @@ public sealed class BestStoriesEndpointTests
             AllowAutoRedirect = false
         });
 
-        var response = await client.GetAsync("/swagger");
+        var response = await client.GetAsync("/swagger", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("swagger/", response.Headers.Location?.OriginalString);
@@ -219,11 +220,11 @@ public sealed class BestStoriesEndpointTests
         await using var factory = new ApiFactory(new StubBestStoriesService([]));
         using var client = factory.CreateClient();
 
-        var response = await client.GetAsync("/swagger/");
+        var response = await client.GetAsync("/swagger/", TestContext.Current.CancellationToken);
 
         response.EnsureSuccessStatusCode();
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
-        var html = await response.Content.ReadAsStringAsync();
+        var html = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
         Assert.Contains("scalar", html, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -242,8 +243,8 @@ public sealed class BestStoriesEndpointTests
             AllowAutoRedirect = false
         });
 
-        var swaggerResponse = await client.GetAsync("/swagger");
-        var openApiResponse = await client.GetAsync("/openapi/v1.json");
+        var swaggerResponse = await client.GetAsync("/swagger", TestContext.Current.CancellationToken);
+        var openApiResponse = await client.GetAsync("/openapi/v1.json", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, swaggerResponse.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, openApiResponse.StatusCode);

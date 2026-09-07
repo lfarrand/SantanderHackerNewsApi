@@ -33,6 +33,9 @@ _UpgradeReport_Files/
 [Pp]ackages/
 **/[Tt]estResults/
 
+# Generated release staging and bundles
+/artifacts/releases/
+
 # Node packages
 node_modules/
 

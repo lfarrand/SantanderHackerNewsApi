@@ -1,4 +1,5 @@
 import json
+import os
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Lock
@@ -10,11 +11,26 @@ ITEMS = {
     102: {"id": 102, "type": "story", "title": "Tie, smaller ID", "url": "https://fixture.invalid/102", "by": "bob", "time": 1700000000, "score": 150, "descendants": 2},
     104: {"id": 104, "type": "story", "title": "Highest score, last upstream", "url": "https://fixture.invalid/104", "by": "dora", "time": 1700000000, "score": 900, "descendants": 4},
 }
+SCENARIO = os.environ.get("HN_SMOKE_SCENARIO", "Smoke")
+if SCENARIO == "Browser":
+    # Reverse upstream order makes both score sorting and ID tie-breaking observable.
+    ITEMS = {
+        story_id: {"id": story_id, "type": "story", "title": f"Browser story {story_id}",
+                   "url": f"https://fixture.invalid/{story_id}", "by": f"author{story_id}",
+                   "time": 1700000000, "score": 1000 - (story_id - 201) // 2 * 10,
+                   "descendants": story_id - 200}
+        for story_id in range(225, 200, -1)
+    }
+elif SCENARIO != "Smoke":
+    raise ValueError(f"Unknown fixture scenario: {SCENARIO}")
 REQUESTS = Counter()
 LOCK = Lock()
 
 
 class Handler(BaseHTTPRequestHandler):
+    if SCENARIO == "Browser":
+        protocol_version = "HTTP/1.1"
+
     def do_GET(self):
         status = 200
         if self.path == "/health":
@@ -26,7 +42,7 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 REQUESTS[self.path] += 1
             if self.path == "/v0/beststories.json":
-                payload = [101, 103, 102, 104]
+                payload = list(ITEMS)
             else:
                 payload = next((item for key, item in ITEMS.items() if self.path == f"/v0/item/{key}.json"), None)
                 if payload is None:
@@ -41,4 +57,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    if SCENARIO == "Browser":
+        # Accept the API's concurrent hydration burst without the default five-slot backlog.
+        ThreadingHTTPServer.request_queue_size = 128
     ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()

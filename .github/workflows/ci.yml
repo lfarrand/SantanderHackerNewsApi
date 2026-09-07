@@ -1,0 +1,289 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: api
+            project: tests/HackerNews.BestStories.Api.Tests/HackerNews.BestStories.Api.Tests.csproj
+            assembly: HackerNews.BestStories.Api
+          - suite: blazor
+            project: tests/HackerNews.BestStories.Blazor.Tests/HackerNews.BestStories.Blazor.Tests.csproj
+            assembly: HackerNews.BestStories.Blazor
+    env:
+      TEST_PROJECT: ${{ matrix.project }}
+      TEST_ASSEMBLY: ${{ matrix.assembly }}
+      RESULTS_DIRECTORY: ${{ github.workspace }}/TestResults/${{ matrix.suite }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Locked restore
+        run: |
+          mkdir -p "$RESULTS_DIRECTORY"
+          dotnet restore "$TEST_PROJECT" --locked-mode 2>&1 | tee "$RESULTS_DIRECTORY/restore.log"
+
+      - name: Release build
+        run: dotnet build "$TEST_PROJECT" --configuration Release --no-restore 2>&1 | tee "$RESULTS_DIRECTORY/build.log"
+
+      - name: Native MTP tests and coverage
+        env:
+          OPENAPI_EXPORT_PATH: ${{ matrix.suite == 'api' && format('{0}/openapi/current-v1.json', github.workspace) || '' }}
+        run: |
+          if [ -z "$OPENAPI_EXPORT_PATH" ]; then unset OPENAPI_EXPORT_PATH; fi
+          dotnet test --project "$TEST_PROJECT" --configuration Release --no-build \
+            --coverlet --report-xunit-xml --report-xunit-xml-filename results.xml \
+            --results-directory "$RESULTS_DIRECTORY" 2>&1 | tee "$RESULTS_DIRECTORY/test.log"
+
+      - name: Require passing results and application coverage
+        if: ${{ !cancelled() }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          directory = Path(os.environ['RESULTS_DIRECTORY'])
+          results = ET.parse(directory / 'results.xml').getroot()
+          tests = results.findall('.//test')
+          assert tests and all(test.get('result') == 'Pass' for test in tests), 'Missing, failed, or skipped tests'
+          assemblies = results.findall('.//assembly')
+          assert assemblies and all(int(a.get('errors', '0')) == 0 for a in assemblies), 'Test assembly errors'
+          reports = list(directory.rglob('coverage.cobertura*.xml'))
+          assert reports, 'Missing Cobertura coverage'
+          packages = [p for report in reports for p in ET.parse(report).findall('.//package')]
+          assert packages and all(p.get('name') == os.environ['TEST_ASSEMBLY'] for p in packages), 'Unexpected or missing application assembly coverage'
+          lines = [line for p in packages for line in p.findall('./classes/class/lines/line')]
+          assert lines and any(int(line.get('hits', '0')) > 0 for line in lines), 'Empty application coverage'
+          print(f'Validated {len(tests)} passing tests and coverage for {os.environ["TEST_ASSEMBLY"]}')
+          PY
+
+      - name: Upload test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-${{ matrix.suite }}-results
+          path: TestResults/${{ matrix.suite }}/
+          if-no-files-found: error
+
+      - name: Upload generated OpenAPI document
+        if: ${{ always() && matrix.suite == 'api' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi-current
+          path: openapi/current-v1.json
+          if-no-files-found: warn
+
+      - name: Require exported OpenAPI document
+        if: ${{ !cancelled() && matrix.suite == 'api' }}
+        run: test -s openapi/current-v1.json
+
+      - name: Breaking-change diff vs committed baseline
+        if: ${{ success() && matrix.suite == 'api' }}
+        uses: oasdiff/oasdiff-action/breaking@v0
+        with:
+          base: openapi/openapi-v1.json
+          revision: openapi/current-v1.json
+          fail-on: ERR
+          review: false
+
+  openapi-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch spec
+        run: git fetch --depth=1 origin ${{ github.base_ref }}
+
+      - name: Check baseline exists on base branch
+        id: baseline
+        run: |
+          if git cat-file -e "origin/${{ github.base_ref }}:openapi/openapi-v1.json"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "No openapi/openapi-v1.json on origin/${{ github.base_ref }}; skipping first-time diff."
+          fi
+
+      - name: Breaking-change diff vs base branch
+        if: steps.baseline.outputs.exists == 'true'
+        uses: oasdiff/oasdiff-action/breaking@v0
+        with:
+          base: origin/${{ github.base_ref }}:openapi/openapi-v1.json
+          revision: HEAD:openapi/openapi-v1.json
+          fail-on: ERR
+          review: false
+
+  ui-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: src/HackerNews.BestStories.React/package-lock.json
+      - name: React unit tests
+        working-directory: src/HackerNews.BestStories.React
+        run: |
+          npm ci
+          npm test
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    outputs:
+      release-artifact-id: ${{ steps.release-bundles.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests/browser/package-lock.json
+
+      - name: Image metadata
+        shell: pwsh
+        env:
+          BUILD_REF_TYPE: ${{ github.ref_type }}
+          BUILD_REF_NAME: ${{ github.ref_name }}
+          BUILD_COMMIT: ${{ github.sha }}
+        run: |
+          . ./build/release/Release.Common.ps1
+          Assert-ReleaseCommit $env:BUILD_COMMIT
+          $version = '0.0.0-ci.' + $env:BUILD_COMMIT.Substring(0, 12)
+          if ($env:BUILD_REF_TYPE -eq 'tag') {
+            $version = Get-ReleaseVersion $env:BUILD_REF_NAME
+          }
+          "IMAGE_VERSION=$version" >> $env:GITHUB_ENV
+          "IMAGE_REVISION=$env:BUILD_COMMIT" >> $env:GITHUB_ENV
+          "API_IMAGE=hackernews-beststories-api:$version" >> $env:GITHUB_ENV
+          "WEB_IMAGE=hackernews-beststories-web:$version" >> $env:GITHUB_ENV
+          "BLAZOR_IMAGE=hackernews-beststories-blazor:$version" >> $env:GITHUB_ENV
+
+      - name: Offline release regressions
+        shell: pwsh
+        run: |
+          ./tests/release/test-publish.ps1
+          ./tests/release/test-publish.ps1 -Stable
+          ./tests/release/test-workflow.ps1
+
+      - name: Build API image
+        run: docker build --platform linux/amd64 --build-arg VERSION="$IMAGE_VERSION" --label "org.opencontainers.image.version=$IMAGE_VERSION" --label "org.opencontainers.image.revision=$IMAGE_REVISION" -f Dockerfile.api -t "$API_IMAGE" .
+
+      - name: Build React image
+        run: docker build --platform linux/amd64 --label "org.opencontainers.image.version=$IMAGE_VERSION" --label "org.opencontainers.image.revision=$IMAGE_REVISION" -f Dockerfile.react -t "$WEB_IMAGE" .
+
+      - name: Build Blazor image
+        run: docker build --platform linux/amd64 --build-arg VERSION="$IMAGE_VERSION" --label "org.opencontainers.image.version=$IMAGE_VERSION" --label "org.opencontainers.image.revision=$IMAGE_REVISION" -f Dockerfile.blazor -t "$BLAZOR_IMAGE" .
+
+      - name: Install browser tooling and Chromium
+        working-directory: tests/browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Four-story HTTP smoke using built images
+        shell: pwsh
+        timeout-minutes: 5
+        run: ./tests/smoke/smoke.ps1 -NoBuild -ApiImage $env:API_IMAGE -WebImage $env:WEB_IMAGE -BlazorImage $env:BLAZOR_IMAGE -ResultsDirectory TestResults/stack-smoke
+
+      - name: Chromium against both UIs using the same images
+        shell: pwsh
+        timeout-minutes: 7
+        run: ./tests/smoke/smoke.ps1 -Scenario Browser -NoBuild -ApiImage $env:API_IMAGE -WebImage $env:WEB_IMAGE -BlazorImage $env:BLAZOR_IMAGE -ResultsDirectory TestResults/stack-browser -TestedStackMetadata TestResults/stack-smoke/stack.json
+
+      - name: Package verified version-tag images
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        shell: pwsh
+        timeout-minutes: 15
+        run: ./build/package-release.ps1 -Version $env:IMAGE_VERSION -Commit $env:IMAGE_REVISION -ApiImage $env:API_IMAGE -WebImage $env:WEB_IMAGE -BlazorImage $env:BLAZOR_IMAGE -TestedStackMetadata @('TestResults/stack-smoke/stack.json', 'TestResults/stack-browser/stack.json') -OutputDirectory artifacts/releases/bundles
+
+      - name: Transfer verified release bundles
+        id: release-bundles
+        if: github.event_name == 'push' && github.ref_type == 'tag'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/releases/bundles/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Upload stack and browser diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stack-browser-diagnostics
+          path: TestResults/stack-*/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: [test, ui-test, docker]
+    if: github.event_name == 'push' && github.ref_type == 'tag' && needs.test.result == 'success' && needs.ui-test.result == 'success' && needs.docker.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    concurrency:
+      group: release-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Require producing artifact identity
+        shell: pwsh
+        env:
+          ARTIFACT_ID: ${{ needs.docker.outputs.release-artifact-id }}
+        run: |
+          if ($env:ARTIFACT_ID -cnotmatch '^[1-9][0-9]*$') { throw 'Missing release artifact identity.' }
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.docker.outputs.release-artifact-id }}
+          merge-multiple: true
+          path: artifacts/releases/download
+      - name: Publish verified release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_REPOSITORY: ${{ github.repository }}
+        run: ./build/publish-release.ps1 -Tag $env:RELEASE_TAG -Commit $env:RELEASE_COMMIT -Repository $env:RELEASE_REPOSITORY -BundleDirectory artifacts/releases/download

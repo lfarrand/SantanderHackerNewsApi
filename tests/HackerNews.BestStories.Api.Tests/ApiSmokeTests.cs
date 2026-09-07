@@ -11,7 +11,7 @@ public sealed class ApiSmokeTests(WebApplicationFactory<Program> factory)
     [Fact]
     public async Task WeatherForecast_Endpoint_IsNotExposed()
     {
-        var response = await _client.GetAsync("/weatherforecast");
+        var response = await _client.GetAsync("/weatherforecast", TestContext.Current.CancellationToken);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
@@ -19,7 +19,7 @@ public sealed class ApiSmokeTests(WebApplicationFactory<Program> factory)
     [Fact]
     public async Task BestStories_EndpointRouteSpace_IsReserved()
     {
-        var response = await _client.GetAsync("/api/best-stories");
+        var response = await _client.GetAsync("/api/best-stories", TestContext.Current.CancellationToken);
 
         Assert.NotEqual(HttpStatusCode.NotFound, response.StatusCode);
     }

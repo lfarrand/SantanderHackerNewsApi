@@ -67,8 +67,8 @@ public sealed class UpstreamResponseTests
         if (stale) Assert.Equal(good, await failed.Content.ReadAsStringAsync());
         var calls = handler.Calls;
         var service = factory.Services.GetRequiredService<IBestStoriesService>();
-        if (stale) await service.RefreshAsync(default);
-        else await Assert.ThrowsAsync<UpstreamException>(() => service.RefreshAsync(default));
+        if (stale) await service.RefreshAsync(CancellationToken.None);
+        else await Assert.ThrowsAsync<UpstreamException>(() => service.RefreshAsync(CancellationToken.None));
         clock.Advance(TimeSpan.FromSeconds(29));
         Assert.Equal(failed.StatusCode, (await client.GetAsync(route)).StatusCode);
         Assert.Equal(calls, handler.Calls);
