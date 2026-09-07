@@ -1,0 +1,145 @@
+@page "/"
+@rendermode InteractiveServer
+@inject BestStoriesClient Api
+
+<PageTitle>Hacker News Best Stories</PageTitle>
+
+<main class="page">
+    <header class="hero">
+        <p class="eyebrow">Hacker News</p>
+        <h1>Best stories</h1>
+        <p class="lede">
+            Ranked by score from <code>/api/best-stories</code>. Default page size is @DefaultPageSize.
+        </p>
+    </header>
+
+    <section class="toolbar">
+        <div>
+            @if (loading)
+            {
+                <span>Loading…</span>
+            }
+            else
+            {
+                <span>@stories.Count stories</span>
+            }
+            @if (error is not null)
+            {
+                <span class="error"> — @error</span>
+            }
+        </div>
+        <label>
+            Per page
+            <select value="@pageSize" @onchange="OnPageSizeChanged">
+                @foreach (var size in PageSizes)
+                {
+                    <option value="@size">@size</option>
+                }
+            </select>
+        </label>
+    </section>
+
+    <div class="grid-wrap">
+        <table class="grid">
+            <thead>
+            <tr>
+                <th class="num">#</th>
+                <th>Title</th>
+                <th>Posted by</th>
+                <th>Time (UTC)</th>
+                <th class="num">Score</th>
+                <th class="num">Comments</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var row in PageRows)
+            {
+                <tr>
+                    <td class="num">@row.Rank</td>
+                    <td>
+                        <a href="@row.Story.Uri" target="_blank" rel="noreferrer">@row.Story.Title</a>
+                    </td>
+                    <td>@row.Story.PostedBy</td>
+                    <td class="mono">@FormatTime(row.Story.Time)</td>
+                    <td class="num">@row.Story.Score</td>
+                    <td class="num">@row.Story.CommentCount</td>
+                </tr>
+            }
+            @if (!loading && PageRows.Count == 0)
+            {
+                <tr>
+                    <td colspan="6" class="empty">No stories to display.</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+
+    <nav class="pager">
+        <button type="button" disabled="@(CurrentPage <= 1)" @onclick="FirstPage">First</button>
+        <button type="button" disabled="@(CurrentPage <= 1)" @onclick="PreviousPage">Previous</button>
+        <span>Page @CurrentPage of @PageCount</span>
+        <button type="button" disabled="@(CurrentPage >= PageCount)" @onclick="NextPage">Next</button>
+        <button type="button" disabled="@(CurrentPage >= PageCount)" @onclick="LastPage">Last</button>
+    </nav>
+</main>
+
+@code {
+    private const int DefaultPageSize = 20;
+    private static readonly int[] PageSizes = [10, 20, 50, 100];
+
+    private IReadOnlyList<Story> stories = [];
+    private int pageSize = DefaultPageSize;
+    private int page = 1;
+    private bool loading = true;
+    private string? error;
+
+    private int PageCount => Math.Max(1, (int)Math.Ceiling(stories.Count / (double)pageSize));
+    private int CurrentPage => Math.Min(page, PageCount);
+
+    private IReadOnlyList<(int Rank, Story Story)> PageRows
+    {
+        get
+        {
+            var start = (CurrentPage - 1) * pageSize;
+            return stories
+                .Skip(start)
+                .Take(pageSize)
+                .Select((story, index) => (start + index + 1, story))
+                .ToArray();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            stories = await Api.GetBestStoriesAsync(BestStoriesClient.MaxStories);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void OnPageSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var size) && size > 0)
+        {
+            pageSize = size;
+            page = 1;
+        }
+    }
+
+    private void FirstPage() => page = 1;
+    private void PreviousPage() => page = Math.Max(1, CurrentPage - 1);
+    private void NextPage() => page = Math.Min(PageCount, CurrentPage + 1);
+    private void LastPage() => page = PageCount;
+
+    private static string FormatTime(DateTimeOffset value)
+        => value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss+00:00");
+}

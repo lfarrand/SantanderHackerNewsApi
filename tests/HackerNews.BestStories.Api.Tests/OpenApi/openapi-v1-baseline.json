@@ -1,0 +1,11 @@
+{
+  "paths": [
+    "/api/best-stories"
+  ],
+  "pathParameterNames": {
+    "/api/best-stories": [
+      "n"
+    ]
+  },
+  "requiredStoryProperties": ["title", "uri", "postedBy", "time", "score", "commentCount"]
+}
