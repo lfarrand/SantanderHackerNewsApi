@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DEFAULT_PAGE_SIZE, MAX_STORIES } from "./types";
 import { fetchBestStories, retryDelayMs } from "./api";
 
@@ -34,6 +34,38 @@ describe("retryDelayMs", () => {
 });
 
 describe("fetchBestStories", () => {
+  describe("API base normalization", () => {
+    beforeEach(() => {
+      vi.resetModules();
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    });
+
+    it.each([
+      [undefined, "/api/best-stories?n=7"],
+      ["", "/api/best-stories?n=7"],
+      ["/", "/api/best-stories?n=7"],
+      ["https://example.com", "https://example.com/api/best-stories?n=7"],
+      ["https://example.com/", "https://example.com/api/best-stories?n=7"],
+      ["https://example.com///", "https://example.com/api/best-stories?n=7"],
+      ["/proxy", "/proxy/api/best-stories?n=7"],
+      ["/proxy///", "/proxy/api/best-stories?n=7"],
+      ["https://example.com/proxy/", "https://example.com/proxy/api/best-stories?n=7"]
+    ])("requests the exact URL for base %s", async (base, expectedUrl) => {
+      vi.stubEnv("VITE_API_BASE", base);
+      const api = await import("./api");
+      const fetchImpl = vi.fn().mockResolvedValue(jsonResponse([story]));
+
+      const result = await api.fetchBestStories(7, { fetchImpl });
+
+      expect(result).toEqual([story]);
+      expect(fetchImpl).toHaveBeenCalledExactlyOnceWith(expectedUrl);
+    });
+  });
+
   it("returns stories on the first 200", async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse([story]));
     const result = await fetchBestStories(1, { fetchImpl, sleep: async () => undefined });

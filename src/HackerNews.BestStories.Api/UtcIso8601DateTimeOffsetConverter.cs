@@ -6,7 +6,8 @@ namespace HackerNews.BestStories.Api;
 internal sealed class UtcIso8601DateTimeOffsetConverter : JsonConverter<DateTimeOffset>
 {
     public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        => DateTimeOffset.Parse(reader.GetString()!);
+        => DateTimeOffset.Parse(reader.GetString()!, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None);
 
     public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
         => writer.WriteStringValue(value.ToUniversalTime()

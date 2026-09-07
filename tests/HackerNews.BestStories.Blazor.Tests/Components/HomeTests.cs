@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using AwesomeAssertions;
@@ -70,27 +71,43 @@ public sealed class HomeTests : BunitContext
         cut.Markup.Should().Contain("No stories to display.");
     }
 
-    [Fact]
-    public void Renders_story_time_in_utc_format()
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("ar-SA")]
+    [InlineData("th-TH")]
+    public void Renders_story_time_in_utc_format(string cultureName)
     {
-        const string json = """
-                            [{
-                              "title":"Story",
-                              "uri":"https://example.com/1",
-                              "postedBy":"author",
-                              "time":"2024-01-02T03:04:05+02:00",
-                              "score":10,
-                              "commentCount":2
-                            }]
-                            """;
-        var handler = new StaticHandler(HttpStatusCode.OK, json);
-        Services.AddSingleton(new BestStoriesClient(
-            new HttpClient(handler) { BaseAddress = new Uri("http://api/") },
-            _ => TimeSpan.Zero));
+        var originalCulture = CultureInfo.CurrentCulture;
+        var originalUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo(cultureName);
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(cultureName);
 
-        var cut = Render<Home>();
+            const string json = """
+                                [{
+                                  "title":"Story",
+                                  "uri":"https://example.com/1",
+                                  "postedBy":"author",
+                                  "time":"2024-01-02T03:04:05+02:00",
+                                  "score":10,
+                                  "commentCount":2
+                                }]
+                                """;
+            var handler = new StaticHandler(HttpStatusCode.OK, json);
+            Services.AddSingleton(new BestStoriesClient(
+                new HttpClient(handler) { BaseAddress = new Uri("http://api/") },
+                _ => TimeSpan.Zero));
 
-        cut.Markup.Should().Contain("2024-01-02T01:04:05+00:00");
+            var cut = Render<Home>();
+
+            cut.Find("tbody td.mono").TextContent.Should().Be("2024-01-02T01:04:05+00:00");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
     }
 
     [Fact]
