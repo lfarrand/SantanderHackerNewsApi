@@ -1,0 +1,74 @@
+# Default: treat as text, store LF in the repo, check out LF on every OS.
+# VS, Rider, and VS Code all handle LF. Docker/Linux scripts break on CRLF.
+* text=auto eol=lf
+
+# Windows-only scripts must stay CRLF or cmd.exe / PowerShell can misread them.
+*.bat          text eol=crlf
+*.cmd          text eol=crlf
+*.ps1          text eol=crlf
+*.psm1         text eol=crlf
+*.psd1         text eol=crlf
+
+# Explicit text types (inherit LF from the default).
+*.cs           text diff=csharp
+*.csx          text diff=csharp
+*.csproj       text
+*.fsproj       text
+*.vbproj       text
+*.props        text
+*.targets      text
+*.sln          text
+*.slnx         text
+*.json         text
+*.config       text
+*.xml          text
+*.yml          text
+*.yaml         text
+*.md           text diff=markdown
+*.txt          text
+*.gitignore    text
+*.gitattributes text
+*.editorconfig text
+*.http         text
+
+# Docker / shell — LF required.
+Dockerfile     text eol=lf
+Dockerfile.*   text eol=lf
+*.dockerfile   text eol=lf
+.dockerignore  text eol=lf
+*.sh           text eol=lf
+
+# Web
+*.js           text
+*.jsx          text
+*.ts           text
+*.tsx          text
+*.css          text
+*.scss         text
+*.html         text
+*.svg          text
+*.map          text
+
+# Binaries — do not convert line endings.
+*.png          binary
+*.jpg          binary
+*.jpeg         binary
+*.gif          binary
+*.ico          binary
+*.webp         binary
+*.woff         binary
+*.woff2        binary
+*.ttf          binary
+*.eot          binary
+*.dll          binary
+*.exe          binary
+*.pdb          binary
+*.nupkg        binary
+*.snupkg       binary
+*.zip          binary
+*.gz           binary
+*.7z           binary
+*.pdf          binary
+*.pfx          binary
+*.p12          binary
+*.snk          binary
